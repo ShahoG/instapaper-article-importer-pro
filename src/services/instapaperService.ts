@@ -1,22 +1,11 @@
+import { CSVRow, InstapaperCredentials, ImportResult, ImportProgress } from "../types";
+import * as apiClient from "./apiClient";
 
-import { CSVRow, InstapaperCredentials, ImportResult } from "../types";
-
-// Function to authenticate with Instapaper
+// Function to authenticate with Instapaper (now uses our apiClient)
 export const authenticateInstapaper = async (
   credentials: InstapaperCredentials
 ): Promise<boolean> => {
-  try {
-    // In a real implementation, this would be a server-side call to prevent exposing credentials
-    // As per Instapaper API docs: https://www.instapaper.com/api/simple
-    console.log("Authenticating with Instapaper:", credentials.username);
-    
-    // This is a mock implementation - in production this should be a server-side call
-    // Mock successful authentication for development purposes
-    return true;
-  } catch (error) {
-    console.error("Authentication error:", error);
-    return false;
-  }
+  return await apiClient.authenticate(credentials);
 };
 
 // Function to parse CSV data
@@ -102,33 +91,28 @@ export const isValidUrl = (url: string): boolean => {
   }
 };
 
-// Function to import articles to Instapaper
+// Function to import articles to Instapaper with progress tracking
 export const importArticlesToInstapaper = async (
   credentials: InstapaperCredentials,
-  articles: CSVRow[]
+  articles: CSVRow[],
+  onProgressUpdate?: (progress: ImportProgress) => void
 ): Promise<ImportResult> => {
   try {
-    // In a real implementation, this would be a server-side call to prevent exposing credentials
-    // As per Instapaper API docs: https://www.instapaper.com/api/full
-    
-    // Authenticate first
-    const isAuthenticated = await authenticateInstapaper(credentials);
-    if (!isAuthenticated) {
-      return { 
-        success: false, 
-        message: "Failed to authenticate with Instapaper" 
-      };
-    }
-    
-    console.log(`Importing ${articles.length} articles to Instapaper for user: ${credentials.username}`);
-    
-    // Mock successful import for development purposes
-    return { 
-      success: true, 
-      message: `Successfully imported ${articles.length} articles to your Instapaper account`,
-      importedCount: articles.length,
-      failedCount: 0
+    // Track progress of the import operation
+    const handleProgress = (current: number, total: number) => {
+      if (onProgressUpdate) {
+        const percentage = Math.round((current / total) * 100);
+        onProgressUpdate({
+          current,
+          total,
+          percentage,
+          isComplete: current === total
+        });
+      }
     };
+    
+    // Use our new API client to handle the import process
+    return await apiClient.importArticles(credentials, articles, handleProgress);
   } catch (error) {
     console.error("Import error:", error);
     return { 

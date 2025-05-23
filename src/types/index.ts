@@ -24,3 +24,10 @@ export type ImportResult = {
   importedCount?: number;
   failedCount?: number;
 };
+
+export type ImportProgress = {
+  current: number;
+  total: number;
+  percentage: number;
+  isComplete: boolean;
+};

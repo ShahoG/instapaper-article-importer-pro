@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { ImportFormValues, CSVRow, ImportResult } from "../types";
+import { ImportFormValues, CSVRow, ImportResult, ImportProgress } from "../types";
 import { 
   parseCSV, 
   validateCSV, 
@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import FileUpload from "./FileUpload";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 
 const formSchema = z.object({
   username: z.string().email("Please enter a valid email address").min(1, "Email is required"),
@@ -33,6 +34,7 @@ const ImportForm: React.FC = () => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
 
   const form = useForm<ImportFormValues>({
     resolver: zodResolver(formSchema),
@@ -43,9 +45,14 @@ const ImportForm: React.FC = () => {
     },
   });
 
+  const handleProgressUpdate = (progress: ImportProgress) => {
+    setImportProgress(progress);
+  };
+
   const onSubmit = async (data: ImportFormValues) => {
     setIsSubmitting(true);
     setImportResult(null);
+    setImportProgress(null);
     
     try {
       const file = data.csvFile;
@@ -74,11 +81,20 @@ const ImportForm: React.FC = () => {
         setIsSubmitting(false);
         return;
       }
+
+      // Initialize progress tracking
+      setImportProgress({
+        current: 0,
+        total: parsedRows.length,
+        percentage: 0,
+        isComplete: false
+      });
       
-      // Import articles to Instapaper
+      // Import articles to Instapaper with progress tracking
       const result = await importArticlesToInstapaper(
         { username: data.username, password: data.password },
-        parsedRows
+        parsedRows,
+        handleProgressUpdate
       );
       
       setImportResult(result);
@@ -194,6 +210,16 @@ const ImportForm: React.FC = () => {
             </Button>
           </form>
         </Form>
+
+        {importProgress && (
+          <div className="mt-6 space-y-2">
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>Importing articles...</span>
+              <span>{importProgress.current}/{importProgress.total} articles</span>
+            </div>
+            <Progress value={importProgress.percentage} className="h-2" />
+          </div>
+        )}
       </CardContent>
       
       {importResult && (
