@@ -39,8 +39,8 @@ export const parseCSV = (csvContent: string): CSVRow[] => {
     }
     
     values.push(currentValue); // Add the last value
-    
-    if (values.length >= 2) { // At minimum we need title and URL
+    // Only require url, all other fields optional
+    if (values.length >= 2 && values[1]) { // url is required
       result.push({
         title: values[0] ? values[0].replace(/^"|"$/g, '') : '',
         url: values[1] ? values[1].replace(/^"|"$/g, '') : '',
@@ -69,13 +69,7 @@ export const validateCSV = (rows: CSVRow[]): { valid: boolean; message?: string 
         message: `Row ${i + 1} contains an invalid URL: "${row.url}"` 
       };
     }
-    
-    if (!row.title) {
-      return { 
-        valid: false, 
-        message: `Row ${i + 1} is missing a title` 
-      };
-    }
+    // Title is now optional, so we do not check for it
   }
   
   return { valid: true };
@@ -121,3 +115,5 @@ export const importArticlesToInstapaper = async (
     };
   }
 };
+
+// Note: The status field is now parsed and available in CSVRow. You can use it to filter or process articles (e.g., only import unread) in the future.

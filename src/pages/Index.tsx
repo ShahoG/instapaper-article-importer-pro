@@ -15,15 +15,6 @@ const Index = () => {
 
       <ImportForm />
       
-      <div className="mt-8 max-w-md p-4 bg-amber-50 border border-amber-200 rounded-md text-amber-700 text-sm">
-        <h3 className="font-semibold mb-1">Demo Limitation</h3>
-        <p>
-          Note: This demonstration may experience CORS limitations when making direct API calls to Instapaper. 
-          In a production environment, you would need to implement a server-side proxy or use serverless functions 
-          to handle the API requests securely.
-        </p>
-      </div>
-      
       <footer className="mt-12 text-center text-gray-500 text-sm">
         <p>
           This tool uses the{" "}

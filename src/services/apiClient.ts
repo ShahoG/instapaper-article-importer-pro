@@ -1,64 +1,47 @@
-
 import axios from "axios";
 import { InstapaperCredentials, CSVRow, ImportResult } from "../types";
 
-// Create an axios instance for Instapaper API calls
-const instapaperClient = axios.create({
-  baseURL: "https://www.instapaper.com/api",
+// Create an axios instance for backend API calls
+const backendClient = axios.create({
+  baseURL: "http://localhost:4000/api",
   timeout: 10000,
   headers: {
-    "Content-Type": "application/x-www-form-urlencoded",
+    "Content-Type": "application/json",
     "Accept": "application/json",
   },
 });
 
-// Encode credentials for Basic Auth
-const encodeCredentials = (credentials: InstapaperCredentials): string => {
-  return Buffer.from(`${credentials.username}:${credentials.password}`).toString("base64");
-};
-
-// Authenticate with Instapaper
+// Authenticate with backend proxy
 export const authenticate = async (credentials: InstapaperCredentials): Promise<boolean> => {
   try {
-    const encodedAuth = encodeCredentials(credentials);
-    const response = await instapaperClient.get("/authenticate", {
-      headers: {
-        Authorization: `Basic ${encodedAuth}`,
-      },
-    });
-    return response.status === 200;
+    const response = await backendClient.post(
+      "/authenticate",
+      credentials
+    );
+    return response.data.success === true;
   } catch (error) {
     console.error("Authentication error:", error);
     return false;
   }
 };
 
-// Add a single article to Instapaper
+// Add a single article via backend proxy
 export const addArticle = async (
   credentials: InstapaperCredentials,
   article: CSVRow
 ): Promise<boolean> => {
   try {
-    const encodedAuth = encodeCredentials(credentials);
-    const params = new URLSearchParams();
-    params.append("url", article.url);
-    
-    if (article.title) {
-      params.append("title", article.title);
-    }
-    
-    // Use tags as description if available
-    if (article.tags) {
-      params.append("description", `Tags: ${article.tags}`);
-    }
-    
-    const response = await instapaperClient.post("/1/bookmarks/add", params, {
-      headers: {
-        Authorization: `Basic ${encodedAuth}`,
-      },
-    });
-    
-    return response.status === 200 || response.status === 201;
+    const response = await backendClient.post(
+      "/add",
+      {
+        username: credentials.username,
+        password: credentials.password,
+        url: article.url,
+        title: article.title,
+        tags: article.tags,
+      }
+    );
+    return response.data.success === true;
   } catch (error) {
     console.error(`Error adding article: ${article.url}`, error);
     return false;
