@@ -117,3 +117,106 @@ export const importArticlesToInstapaper = async (
 };
 
 // Note: The status field is now parsed and available in CSVRow. You can use it to filter or process articles (e.g., only import unread) in the future.
+
+// Function to parse only URLs from CSV data
+export const parseURLsFromCSV = (csvContent: string): string[] => {
+  const lines = csvContent.split("\n");
+  const urls: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    // Properly handle commas within quoted fields
+    const values: string[] = [];
+    let currentValue = "";
+    let insideQuotes = false;
+    for (let j = 0; j < line.length; j++) {
+      const char = line[j];
+      if (char === '"') {
+        insideQuotes = !insideQuotes;
+      } else if (char === ',' && !insideQuotes) {
+        values.push(currentValue);
+        currentValue = "";
+      } else {
+        currentValue += char;
+      }
+    }
+    values.push(currentValue); // Add the last value
+    // Find the first non-empty value that looks like a URL
+    for (const val of values) {
+      const trimmed = val.replace(/^"|"$/g, '').trim();
+      if (trimmed && /^https?:\/\//.test(trimmed)) {
+        urls.push(trimmed);
+        break;
+      }
+    }
+  }
+  return urls;
+};
+
+// Function to import URLs to Instapaper with progress tracking
+export const importURLsToInstapaper = async (
+  credentials: InstapaperCredentials,
+  urls: string[],
+  onProgressUpdate?: (progress: ImportProgress) => void
+): Promise<ImportResult> => {
+  try {
+    const handleProgress = (current: number, total: number) => {
+      if (onProgressUpdate) {
+        const percentage = Math.round((current / total) * 100);
+        onProgressUpdate({
+          current,
+          total,
+          percentage,
+          isComplete: current === total
+        });
+      }
+    };
+
+    // Authenticate first
+    const isAuthenticated = await apiClient.authenticate(credentials);
+    if (!isAuthenticated) {
+      return {
+        success: false,
+        message: "Failed to authenticate with Instapaper",
+      };
+    }
+
+    let successCount = 0;
+    let failedCount = 0;
+    for (let i = 0; i < urls.length; i++) {
+      if (onProgressUpdate) handleProgress(i, urls.length);
+      const url = urls[i];
+      // Use apiClient.addArticle with only url
+      const success = await apiClient.addArticle(credentials, { url, title: '', time_added: '', tags: '', status: '' });
+      if (success) {
+        successCount++;
+      } else {
+        failedCount++;
+      }
+      if (i < urls.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    }
+    if (onProgressUpdate) handleProgress(urls.length, urls.length);
+    if (successCount === 0) {
+      return {
+        success: false,
+        message: "Failed to import any URLs",
+        importedCount: 0,
+        failedCount
+      };
+    }
+    return {
+      success: true,
+      message: `Successfully imported ${successCount} URLs${failedCount > 0 ? `, ${failedCount} failed` : ''}`,
+      importedCount: successCount,
+      failedCount
+    };
+  } catch (error) {
+    console.error("Import error:", error);
+    return {
+      success: false,
+      message: "An error occurred during the import process"
+    };
+  }
+};

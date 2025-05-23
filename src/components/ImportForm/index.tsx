@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,7 +6,9 @@ import { ImportFormValues, ImportResult, ImportProgress, CSVRow } from "@/types"
 import { 
   parseCSV, 
   validateCSV, 
-  importArticlesToInstapaper 
+  importArticlesToInstapaper, 
+  parseURLsFromCSV, 
+  importURLsToInstapaper 
 } from "@/services/instapaperService";
 import { Form } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
@@ -60,32 +61,40 @@ const ImportForm: React.FC = () => {
 
       // Read and parse the CSV file
       const fileContent = await file.text();
-      const parsedRows = parseCSV(fileContent);
-      
-      // Validate the CSV structure
-      const validationResult = validateCSV(parsedRows);
-      if (!validationResult.valid) {
+      // const parsedRows = parseCSV(fileContent);
+      // const validationResult = validateCSV(parsedRows);
+      // if (!validationResult.valid) {
+      //   toast({
+      //     title: "Invalid CSV File",
+      //     description: validationResult.message,
+      //     variant: "destructive",
+      //   });
+      //   setIsSubmitting(false);
+      //   return;
+      // }
+
+      // Use new URL-only parsing and import flow
+      const urls = parseURLsFromCSV(fileContent);
+      if (urls.length === 0) {
         toast({
-          title: "Invalid CSV File",
-          description: validationResult.message,
+          title: "No URLs found",
+          description: "No valid URLs were found in the CSV file.",
           variant: "destructive",
         });
         setIsSubmitting(false);
         return;
       }
 
-      // Initialize progress tracking
       setImportProgress({
         current: 0,
-        total: parsedRows.length,
+        total: urls.length,
         percentage: 0,
         isComplete: false
       });
-      
-      // Import articles to Instapaper with progress tracking
-      const result = await importArticlesToInstapaper(
+
+      const result = await importURLsToInstapaper(
         { username: data.username, password: data.password },
-        parsedRows,
+        urls,
         handleProgressUpdate
       );
       
