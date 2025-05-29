@@ -84,6 +84,15 @@ const ImportForm: React.FC = () => {
         isComplete: false
       });
 
+      // Show warning for large imports
+      if (filteredRows.length > 100) {
+        toast({
+          title: "Large Import Detected",
+          description: `Importing ${filteredRows.length} articles. This may take ${Math.ceil(filteredRows.length / 10)} minutes. Please keep this tab open.`,
+          duration: 10000,
+        });
+      }
+
       // Use the old import logic
       const result = await importArticlesToInstapaper(
         { username: data.username, password: data.password },

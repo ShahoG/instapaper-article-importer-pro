@@ -9,11 +9,20 @@ require('dotenv').config(); // Load .env
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Increased limit for very large batches
+
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
 
 // Load Instapaper API credentials from environment variables
 const INSTAPAPER_CONSUMER_KEY = process.env.INSTAPAPER_CONSUMER_KEY;
 const INSTAPAPER_CONSUMER_SECRET = process.env.INSTAPAPER_CONSUMER_SECRET;
+
+// Configure axios for better timeout handling - support for long-running imports
+axios.defaults.timeout = 120000; // 2 minutes timeout
 
 function getOAuthClient() {
   return OAuth({
