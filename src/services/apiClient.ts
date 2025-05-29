@@ -83,7 +83,6 @@ const addArticleWithRetry = async (
         RATE_LIMIT_CONFIG.initialDelay * Math.pow(RATE_LIMIT_CONFIG.backoffMultiplier, retryCount),
         RATE_LIMIT_CONFIG.maxDelay
       );
-      console.log(`Retrying article ${article.url} after ${backoffDelay}ms (attempt ${retryCount + 1}/${RATE_LIMIT_CONFIG.maxRetries})`);
       await sleep(backoffDelay);
       return addArticleWithRetry(article, retryCount + 1);
     }
@@ -122,8 +121,6 @@ export const importArticles = async (
   const failedArticles: Array<{url: string, error: string}> = [];
   let currentDelay = RATE_LIMIT_CONFIG.initialDelay;
   
-  console.log(`Starting import of ${articles.length} articles...`);
-  
   // For very large imports (>100 articles), process in mega-batches
   const useMegaBatches = articles.length > 100;
   const megaBatchSize = 100;
@@ -133,7 +130,6 @@ export const importArticles = async (
     for (let i = 0; i < articles.length; i += megaBatchSize) {
       megaBatches.push(articles.slice(i, i + megaBatchSize));
     }
-    console.log(`Processing ${articles.length} articles in ${megaBatches.length} mega-batches of up to ${megaBatchSize} articles each`);
   }
   
   // Process each mega-batch
@@ -141,7 +137,6 @@ export const importArticles = async (
     const megaBatch = megaBatches[megaBatchIndex];
     
     if (useMegaBatches && megaBatchIndex > 0) {
-      console.log(`Waiting 10 seconds before processing mega-batch ${megaBatchIndex + 1}/${megaBatches.length}...`);
       await sleep(10000); // 10 second delay between mega-batches
     }
     
@@ -150,8 +145,7 @@ export const importArticles = async (
     for (let i = 0; i < megaBatch.length; i += RATE_LIMIT_CONFIG.batchSize) {
       batches.push(megaBatch.slice(i, i + RATE_LIMIT_CONFIG.batchSize));
     }
-    
-    console.log(`Mega-batch ${megaBatchIndex + 1}: Processing ${megaBatch.length} articles in ${batches.length} batches...`);
+  
     
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
       const batch = batches[batchIndex];
@@ -209,8 +203,6 @@ export const importArticles = async (
   if (onProgress) {
     onProgress(articles.length, articles.length);
   }
-  
-  console.log(`Import complete: ${successCount} succeeded, ${failedCount} failed`);
   
   if (successCount === 0) {
     return {

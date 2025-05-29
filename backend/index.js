@@ -13,7 +13,6 @@ app.use(express.json({ limit: '50mb' })); // Increased limit for very large batc
 
 // Request logging middleware
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
 });
 
@@ -77,8 +76,6 @@ app.post('/api/authenticate', async (req, res) => {
 app.post('/api/add', async (req, res) => {
   const { token, tokenSecret, url, title, status } = req.body;
   
-  console.log('Add article request:', { url, title, status, hasToken: !!token, hasTokenSecret: !!tokenSecret });
-  
   try {
     const oauth = getOAuthClient();
     const apiUrl = 'https://www.instapaper.com/api/1/bookmarks/add';
@@ -87,15 +84,9 @@ app.post('/api/add', async (req, res) => {
       title: title || '',
     };
     
-    // Add archived parameter if status is 'archive'
-    console.log('Status value received:', status, 'Type:', typeof status);
-    console.log('Status === "archive"?', status === 'archive');
-    console.log('Status.toLowerCase() === "archive"?', status?.toLowerCase() === 'archive');
-    
     // Make the comparison case-insensitive and handle various formats
     if (status && status.toString().toLowerCase().trim() === 'archive') {
       data.archived = '1';
-      console.log('Setting archived to 1');
     }
     
     const request_data = {
@@ -117,9 +108,7 @@ app.post('/api/add', async (req, res) => {
       ...oauth.toHeader(oauth.authorize(request_data, tokenObj)),
       'Content-Type': 'application/x-www-form-urlencoded',
     };
-    
-    console.log('Making request to Instapaper API:', apiUrl);
-    console.log('Request data:', data);
+  
     
     const params = new URLSearchParams(data);
     const response = await axios.post(apiUrl, params, { headers });

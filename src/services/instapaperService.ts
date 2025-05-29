@@ -16,9 +16,6 @@ function extractTitleUrlStatus(values: string[]): { title: string; url: string; 
   // Normalize values
   const norm = (v: string) => v ? v.replace(/^"|"$/g, '').trim() : '';
   
-  // Debug logging
-  console.log('CSV row values:', values);
-  
   // First, find the URL
   let urlIndex = -1;
   for (let i = 0; i < values.length; i++) {
@@ -46,9 +43,6 @@ function extractTitleUrlStatus(values: string[]): { title: string; url: string; 
     const otherIndex = urlIndex === 0 ? 1 : 0;
     status = norm(values[otherIndex]);
   }
-  
-  // Debug logging
-  console.log('Extracted:', { title, url, status });
   
   return { title, url, status };
 }
