@@ -3,6 +3,9 @@ const axios = require('axios');
 const cors = require('cors');
 const OAuth = require('oauth-1.0a');
 const crypto = require('crypto');
+require('dotenv').config(); // Load .env
+
+// Make sure to set your real Instapaper API key/secret in backend/.env
 
 const app = express();
 app.use(cors());
@@ -12,7 +15,7 @@ app.use(express.json());
 const INSTAPAPER_CONSUMER_KEY = process.env.INSTAPAPER_CONSUMER_KEY;
 const INSTAPAPER_CONSUMER_SECRET = process.env.INSTAPAPER_CONSUMER_SECRET;
 
-function getOAuthClient(token = '', tokenSecret = '') {
+function getOAuthClient() {
   return OAuth({
     consumer: { key: INSTAPAPER_CONSUMER_KEY, secret: INSTAPAPER_CONSUMER_SECRET },
     signature_method: 'HMAC-SHA1',
@@ -27,7 +30,7 @@ app.post('/api/authenticate', async (req, res) => {
   const { username, password } = req.body;
   try {
     const oauth = getOAuthClient();
-    const url = 'https://www.instapaper.com/api/1/oauth/access_token';
+    const url = 'https://instapaper.com/api/1/oauth/access_token';
     const data = {
       x_auth_username: username,
       x_auth_password: password || '',
@@ -38,10 +41,13 @@ app.post('/api/authenticate', async (req, res) => {
       method: 'POST',
       data,
     };
-    const headers = oauth.toHeader(oauth.authorize(request_data));
+    const headers = {
+      ...oauth.toHeader(oauth.authorize(request_data)),
+      'Content-Type': 'application/x-www-form-urlencoded',
+    };
     const params = new URLSearchParams(data);
     const response = await axios.post(url, params, { headers });
-    // Parse response: oauth_token=...&oauth_token_secret=...
+
     const result = {};
     response.data.split('&').forEach(pair => {
       const [k, v] = pair.split('=');
@@ -53,45 +59,75 @@ app.post('/api/authenticate', async (req, res) => {
       res.status(401).send({ success: false, error: 'Failed to obtain access token' });
     }
   } catch (error) {
-    res.status(401).send({ success: false, error: 'Authentication failed' });
+    console.error('Authentication error:', error.response?.data || error.message);
+    res.status(401).send({ success: false, error: 'Authentication failed', details: error.response?.data || error.message });
   }
 });
 
 // Add an article using Instapaper Full API
 app.post('/api/add', async (req, res) => {
-  const { token, tokenSecret, url, title, tags, status } = req.body;
+  const { token, tokenSecret, url, title, status } = req.body;
+  
+  console.log('Add article request:', { url, title, status, hasToken: !!token, hasTokenSecret: !!tokenSecret });
+  
   try {
-    const oauth = getOAuthClient(token, tokenSecret);
+    const oauth = getOAuthClient();
     const apiUrl = 'https://www.instapaper.com/api/1/bookmarks/add';
     const data = {
       url,
-      // Only include title if present
-      ...(title ? { title } : {}),
-      // Only include description if tags present
-      ...(tags ? { description: `Tags: ${tags}` } : {}),
-      // Map status to 'archive' param: 1 = archived, 0 = unread
-      ...(status ? { archive: status === 'archived' || status === '1' ? '1' : '0' } : {}),
+      title: title || '',
     };
+    
+    // Add archived parameter if status is 'archive'
+    console.log('Status value received:', status, 'Type:', typeof status);
+    console.log('Status === "archive"?', status === 'archive');
+    console.log('Status.toLowerCase() === "archive"?', status?.toLowerCase() === 'archive');
+    
+    // Make the comparison case-insensitive and handle various formats
+    if (status && status.toString().toLowerCase().trim() === 'archive') {
+      data.archived = '1';
+      console.log('Setting archived to 1');
+    }
+    
     const request_data = {
       url: apiUrl,
       method: 'POST',
       data,
     };
-    const headers = oauth.toHeader(oauth.authorize(request_data, { key: token, secret: tokenSecret }));
+    
+    // Create token object for OAuth authorization
+    const tokenObj = token && tokenSecret ? { key: token, secret: tokenSecret } : undefined;
+    
+    if (!tokenObj) {
+      console.error('Missing OAuth tokens');
+      res.status(401).send({ success: false, error: 'Missing authentication tokens' });
+      return;
+    }
+    
+    const headers = {
+      ...oauth.toHeader(oauth.authorize(request_data, tokenObj)),
+      'Content-Type': 'application/x-www-form-urlencoded',
+    };
+    
+    console.log('Making request to Instapaper API:', apiUrl);
+    console.log('Request data:', data);
+    
     const params = new URLSearchParams(data);
     const response = await axios.post(apiUrl, params, { headers });
-    // Instapaper returns an array of objects; check for type=bookmark
+    
+    // Check if bookmark was created successfully
     if (Array.isArray(response.data) && response.data.some(item => item.type === 'bookmark')) {
       res.send({ success: true });
     } else {
-      res.status(400).send({ success: false, error: 'Failed to add article' });
+      res.status(400).send({ success: false, error: 'Failed to add article', details: response.data });
     }
   } catch (error) {
-    res.status(400).send({ success: false, error: 'Failed to add article' });
+    console.error('Add article error:', error.response?.data || error.message);
+    res.status(400).send({ success: false, error: 'Failed to add article', details: error.response?.data || error.message });
   }
 });
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 4001;
 app.listen(PORT, () => {
   console.log(`Instapaper proxy backend running on port ${PORT}`);
 });

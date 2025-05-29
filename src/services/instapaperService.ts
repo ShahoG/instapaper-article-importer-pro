@@ -8,6 +8,51 @@ export const authenticateInstapaper = async (
   return await apiClient.authenticate(credentials);
 };
 
+// Helper to extract title, url, and status from a row
+function extractTitleUrlStatus(values: string[]): { title: string; url: string; status: string } {
+  const title = '';
+  let url = '';
+  let status = '';
+  // Normalize values
+  const norm = (v: string) => v ? v.replace(/^"|"$/g, '').trim() : '';
+  
+  // Debug logging
+  console.log('CSV row values:', values);
+  
+  // First, find the URL
+  let urlIndex = -1;
+  for (let i = 0; i < values.length; i++) {
+    if (/^https?:\/\//.test(values[i].trim())) {
+      url = norm(values[i]);
+      urlIndex = i;
+      break;
+    }
+  }
+  
+  // Then look for status values (archive, archived, unread, etc.)
+  for (let i = 0; i < values.length; i++) {
+    if (i !== urlIndex) {
+      const val = norm(values[i]).toLowerCase();
+      if (val === 'archive' || val === 'archived' || val === 'unread') {
+        status = norm(values[i]);
+        break;
+      }
+    }
+  }
+  
+  // If we still don't have a status and there are exactly 2 values, 
+  // assume the non-URL value is the status
+  if (!status && values.length === 2 && urlIndex !== -1) {
+    const otherIndex = urlIndex === 0 ? 1 : 0;
+    status = norm(values[otherIndex]);
+  }
+  
+  // Debug logging
+  console.log('Extracted:', { title, url, status });
+  
+  return { title, url, status };
+}
+
 // Function to parse CSV data
 export const parseCSV = (csvContent: string): CSVRow[] => {
   const lines = csvContent.split("\n");
@@ -39,14 +84,16 @@ export const parseCSV = (csvContent: string): CSVRow[] => {
     }
     
     values.push(currentValue); // Add the last value
-    // Only require url, all other fields optional
-    if (values.length >= 2 && values[1]) { // url is required
+
+    // Use the helper to extract fields
+    const { title, url, status } = extractTitleUrlStatus(values);
+    if (url) {
       result.push({
-        title: values[0] ? values[0].replace(/^"|"$/g, '') : '',
-        url: values[1] ? values[1].replace(/^"|"$/g, '') : '',
-        time_added: values[2] ? values[2].replace(/^"|"$/g, '') : '',
-        tags: values[3] ? values[3].replace(/^"|"$/g, '') : '',
-        status: values[4] ? values[4].replace(/^"|"$/g, '') : ''
+        title,
+        url,
+        time_added: '',
+        tags: '',
+        status
       });
     }
   }

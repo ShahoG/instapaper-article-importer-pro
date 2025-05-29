@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import ImportFormFields from "./ImportFormFields";
 import ProgressIndicator from "./ProgressIndicator";
 import ResultDisplay from "./ResultDisplay";
+import axios from "axios";
 
 const formSchema = z.object({
   username: z.string().email("Please enter a valid email address").min(1, "Email is required"),
@@ -61,21 +62,12 @@ const ImportForm: React.FC = () => {
 
       // Read and parse the CSV file
       const fileContent = await file.text();
-      // const parsedRows = parseCSV(fileContent);
-      // const validationResult = validateCSV(parsedRows);
-      // if (!validationResult.valid) {
-      //   toast({
-      //     title: "Invalid CSV File",
-      //     description: validationResult.message,
-      //     variant: "destructive",
-      //   });
-      //   setIsSubmitting(false);
-      //   return;
-      // }
-
-      // Use new URL-only parsing and import flow
-      const urls = parseURLsFromCSV(fileContent);
-      if (urls.length === 0) {
+      const parsedRows = parseCSV(fileContent);
+      // Only keep url and status fields
+      const filteredRows = parsedRows
+        .filter(row => row.url)
+        .map(row => ({ url: row.url, status: row.status }));
+      if (filteredRows.length === 0) {
         toast({
           title: "No URLs found",
           description: "No valid URLs were found in the CSV file.",
@@ -87,19 +79,19 @@ const ImportForm: React.FC = () => {
 
       setImportProgress({
         current: 0,
-        total: urls.length,
+        total: filteredRows.length,
         percentage: 0,
         isComplete: false
       });
 
-      const result = await importURLsToInstapaper(
+      // Use the old import logic
+      const result = await importArticlesToInstapaper(
         { username: data.username, password: data.password },
-        urls,
+        // Pass only url and status fields, but importArticlesToInstapaper expects CSVRow[]
+        filteredRows.map(row => ({ url: row.url, status: row.status, title: '', time_added: '', tags: '' })),
         handleProgressUpdate
       );
-      
       setImportResult(result);
-      
       // Show toast notification based on result
       if (result.success) {
         toast({
@@ -113,6 +105,7 @@ const ImportForm: React.FC = () => {
           variant: "destructive",
         });
       }
+
     } catch (error) {
       console.error("Error during import:", error);
       toast({

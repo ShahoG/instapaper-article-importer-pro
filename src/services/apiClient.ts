@@ -3,7 +3,7 @@ import { InstapaperCredentials, CSVRow, ImportResult } from "../types";
 
 // Create an axios instance for backend API calls
 const backendClient = axios.create({
-  baseURL: "http://localhost:4000/api",
+  baseURL: "http://localhost:4001/api",
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
@@ -11,34 +11,49 @@ const backendClient = axios.create({
   },
 });
 
-// Authenticate with backend proxy
+// Store OAuth tokens after authentication
+let authTokens: { token: string; tokenSecret: string } | null = null;
+
+// Authenticate with backend proxy and store tokens
 export const authenticate = async (credentials: InstapaperCredentials): Promise<boolean> => {
   try {
     const response = await backendClient.post(
       "/authenticate",
       credentials
     );
-    return response.data.success === true;
+    if (response.data.success === true && response.data.token && response.data.tokenSecret) {
+      authTokens = {
+        token: response.data.token,
+        tokenSecret: response.data.tokenSecret
+      };
+      return true;
+    }
+    return false;
   } catch (error) {
     console.error("Authentication error:", error);
     return false;
   }
 };
 
-// Add a single article via backend proxy
+// Add a single article via backend proxy using OAuth tokens
 export const addArticle = async (
   credentials: InstapaperCredentials,
   article: CSVRow
 ): Promise<boolean> => {
   try {
+    if (!authTokens) {
+      console.error("No auth tokens available. Please authenticate first.");
+      return false;
+    }
+    
     const response = await backendClient.post(
       "/add",
       {
-        username: credentials.username,
-        password: credentials.password,
+        token: authTokens.token,
+        tokenSecret: authTokens.tokenSecret,
         url: article.url,
         title: article.title,
-        tags: article.tags,
+        status: article.status,
       }
     );
     return response.data.success === true;
